@@ -148,7 +148,7 @@ object PolymorphicFunctions {
     def go(list: List[A], acc: Boolean): Boolean = {
       if (!acc) false else
       list match {
-        case _::Nil => acc
+        case Nil => acc
         case x::xs => go(xs, gt(x, xs.head))
       }
     }
