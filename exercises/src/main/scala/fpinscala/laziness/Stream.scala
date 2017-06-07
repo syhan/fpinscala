@@ -17,18 +17,61 @@ trait Stream[+A] {
     case Empty => None
     case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
   }
-  def take(n: Int): Stream[A] = ???
 
-  def drop(n: Int): Stream[A] = ???
+  def toList: List[A] = this match {
+    case Empty => Nil
+    case Cons(h, t) => h() :: t().toList
+  }
 
-  def takeWhile(p: A => Boolean): Stream[A] = ???
+  def take(n: Int): Stream[A] = this match {
+    case Cons(h, t) if n > 0 => Cons(h, () => t().take(n - 1))
+    case _ => Empty
+  }
 
-  def forAll(p: A => Boolean): Boolean = ???
+  def drop(n: Int): Stream[A] = this match {
+    case Cons(_, t) if n > 0 => t().drop(n - 1)
+    case _ => this
+  }
 
-  def headOption: Option[A] = ???
+  def takeWhile(p: A => Boolean): Stream[A] = this match {
+    case Cons(h, t) if p(h())  => Cons(h, () => t().takeWhile(p))
+    case _ => Empty
+  }
 
-  // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
+  def forAll(p: A => Boolean): Boolean = foldRight(true)((a, b) => p(a) && b)
+  /*this match {
+    case Cons(h, t) => p(h()) && t().forAll(p)
+    case _ => true
+  }*/
+
+  def headOption: Option[A] = foldRight(None: Option[A])((a, _) => Some(a))
+
+  // 5.7 map, filter, append, flatMap using foldRight. Part of the exercise is
   // writing your own function signatures.
+
+  def map[B](p: A => B): Stream[B] = foldRight(Empty: Stream[B])((a, b) => Cons(() => p(a), () => b))
+  /*this match {
+    case Cons(h, t) => Cons(() => p(h()), () => t().map(p))
+    case _ => Empty
+  }*/
+
+  def filter(p: A => Boolean): Stream[A] = foldRight(Empty: Stream[A])((a, b) => if (p(a)) Cons(() => a, () => b.filter(p)) else b.filter(p))
+  /*this match {
+    case Cons(h, t) => if (p(h())) Cons(h, () => t().filter(p)) else t().filter(p)
+    case _ => Empty
+  }*/
+
+  def append[B>:A](a: Stream[B]): Stream[B] = foldRight(a)((h, t) => Cons(() => h, () => t))
+  /*this match {
+    case Empty => a
+    case Cons(h, t) => Cons(h, () => t().append(a))
+  }*/
+
+  def flatMap[B](p: A => Stream[B]): Stream[B] = foldRight(Empty: Stream[B])((a, b) => p(a).append(b))
+  /*this match {
+    case Cons(h, t) => p(h()).append(t())
+    case Empty => Empty
+  }*/
 
   def startsWith[B](s: Stream[B]): Boolean = ???
 }
@@ -36,6 +79,25 @@ case object Empty extends Stream[Nothing]
 case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
 
 object Stream {
+
+  def main(args: Array[String]): Unit = {
+    val s = Cons[Int](() => 1, () => Cons[Int](() => 2, () => Empty))
+
+    assert(s.toList == List(1, 2))
+    assert(s.take(1).toList == List(1))
+    assert(s.drop(1).toList == List(2))
+    assert(s.takeWhile(x => x == 1).toList == List(1))
+    assert(s.forAll(x => x < 3))
+
+    assert(s.map(_ + 1).toList == List(2, 3))
+    assert(s.map(_.toString).toList == List("1", "2"))
+    assert(s.filter(x => x == 1).toList == List(1))
+
+    val s1 = Stream(1, 2, 3, 4)
+
+    println(s1.map(_ + 10).filter(_ % 2 == 0).toList)
+  }
+
   def cons[A](hd: => A, tl: => Stream[A]): Stream[A] = {
     lazy val head = hd
     lazy val tail = tl
